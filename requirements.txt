@@ -1,0 +1,5 @@
+pyTelegramBotAPI==4.23.0
+pandas==2.2.3
+os-sys==2.1.4
+pyodbc==5.1.0
+python-dotenv==1.0.1
