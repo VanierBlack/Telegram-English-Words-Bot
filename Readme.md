@@ -8,6 +8,7 @@ This Python script is designed to send a list of English words from an Access da
 - **Registry Management**: The script uses the Windows registry to keep track of the last read index, ensuring that words are not repeated.
 - **Environment Variables**: The script uses environment variables to securely store the Telegram API token and chat ID.
 
+
 ## Prerequisites
 
 Before running the script, ensure you have the following installed:
@@ -118,6 +119,7 @@ You can install the required libraries using the `requirements.txt` file provide
 - The script must be running continuously for the scheduler to work. If you close the script, the scheduled tasks will not run.
 - Ensure that the Access database file path and table structure match the script's expectations.
 - The script uses the Windows registry to store the last read index. Ensure that the script has the necessary permissions to read and write to the registry.
+- You can use this Code as BluePrint for anything you want to automate.
 
 ## License
 
