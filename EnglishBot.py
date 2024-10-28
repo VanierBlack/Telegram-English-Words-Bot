@@ -114,19 +114,17 @@ def DeleteMessage(message_id):
     if bot.delete_message(TO_CHAT_ID, message_id):
         print("Message Deleted Successfully")
 
+def InitiateMessagesTracking():
+    # Function to handle all incoming messages
+    @bot.message_handler(func=lambda message: True) # Handle all messages
+    def handle_message(message):
+        chat_id = -1 * (message.chat.id) if (message.chat.id < 0) else (message.chat.id)
+        message_text = message.text
 
-# Function to get all updates and extract messages
-def get_all_messages(max_messages=2): # Add a limit to messages
-    messages = []
-    last_update_id = 0 # Start with no previous update ID
-    while len(messages) < max_messages: # Loop until the limit is reached
-        updates = bot.get_updates(offset=last_update_id + 1, timeout=20) # Shorter timeout, use offset
-
-        for update in updates:
-            last_update_id = update.update_id # Update the last update ID
-            if update.message:
-                message = update.message
-                message_data = {
+        # Optionally process the message
+        print(f"Received message from chat ID: {chat_id}, text: {message_text}")
+        # Save message data (example: to a JSON file)
+        message_data = {
                 'chat_id': message.chat.id,
                 'message_id': message.message_id,
                 'text': message.text,
@@ -144,8 +142,16 @@ def get_all_messages(max_messages=2): # Add a limit to messages
                     'username': message.chat.username
                 }
             }
-            messages.append(message_data)
+        with open("messages.json", "a") as f:
+            json.dump(message_data, f)
+            f.write('\n') # Add a newline for better readability
+        
+    @bot.poll_answer_handler(func = lambda poll: True)
+    def receive(poll_answer: telebot.types.PollAnswer):
+        print(poll_answer.user)
+        
+    bot.polling(none_stop = True, interval = 0)
 
-        time.sleep(1) # Add a small delay between checks
+    
 
-    json.dump(messages, "messages.json")
+

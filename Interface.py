@@ -13,9 +13,9 @@ def DeleteMessage(id):
 	import EnglishBot
 	EnglishBot.DeleteMessage(id)
 
-def RetrieveMessages():
+def TrackMessages():
 	import EnglishBot
-	EnglishBot.get_all_messages()
+	EnglishBot.InitiateMessagesTracking()
 	
 parser = argparse.ArgumentParser(prog="EnglishBot", 
     description="Send English Vocabularies Daily")
@@ -26,11 +26,11 @@ parser.add_argument("-q", "--Question", action = "append", help = "Providing Que
 parser.add_argument("-o", "--Options", action = "append", help = "Providing Options for the Quiz", nargs = "*")
 parser.add_argument("-a", "--Answer", action = "append", help = "Providing the correct answer", nargs = 1)
 parser.add_argument("-d", "--DeleteMessage", action = "append", help = "Delete a specific message", nargs = 1)
-parser.add_argument("-m", "--RetrieveMessages", action = "store_true", help = "Retrieve Messages from previous chats or new")
+parser.add_argument("-t", "--TrackMessages", action = "store_true", help = "Track Messages Sent")
 args = parser.parse_args()
 
 if args.SendMessages:
-    SendWords()
+	SendWords()
 
 if args.Quiz:
 	if args.Question and (2 <= len(*args.Options) <= 5):
@@ -41,5 +41,6 @@ if args.DeleteMessage:
 	message_id = int(*args.DeleteMessage[0])
 	DeleteMessage(message_id)
 
-if args.RetrieveMessages:
-	RetrieveMessages()
+if args.TrackMessages:
+	TrackMessages()
+

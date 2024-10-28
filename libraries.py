@@ -7,4 +7,4 @@ import time
 import json
 from dotenv import set_key, load_dotenv
 
-__all__ = ['telebot', 'winreg', 'pd', 'pyodbc', 'os', 'set_key', 'load_dotenv']
+__all__ = ['telebot', 'winreg', 'pd', 'pyodbc', 'os', 'set_key', 'load_dotenv', 'time', 'json']
