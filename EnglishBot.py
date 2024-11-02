@@ -2,6 +2,7 @@ from libraries import *
 
 # Load environment variables from the .env file
 load_dotenv()
+bot_lock = threading.Lock()
 
 # Retrieve API token and chat ID from environment variables
 API_TOKEN = os.getenv("API_TOKEN")
@@ -38,18 +39,19 @@ def send_words(words_list, to_chat_id):
     :return: True if the message was sent successfully, False otherwise.
     """
     full_message = "\n".join(f"{word[0]} - {word[1]} - {word[2]}" for word in words_list)
-    try:
-        sent_message = bot.send_message(to_chat_id, full_message)
-        if sent_message.message_id:
-            print(f"Message sent successfully! Message ID: {sent_message.message_id}")
-            return True
-        else:
-            print("Message was not sent successfully.")
-            return False
+    with bot_lock:
+        try:
+            sent_message = bot.send_message(to_chat_id, full_message)
+            if sent_message.message_id:
+                print(f"Message sent successfully! Message ID: {sent_message.message_id}")
+                return True
+            else:
+                print("Message was not sent successfully.")
+                return False
 
-    except telebot.apihelper.ApiException as e:
-        print(f"Failed to send message: {e}")
-        return False
+        except telebot.apihelper.ApiException as e:
+            print(f"Failed to send message: {e}")
+            return False
 
 def read_access_db(starting_index):
     """
@@ -61,12 +63,16 @@ def read_access_db(starting_index):
     path_to_access_file = f"E:\\{FILE_NAME}"
     connection_string = rf'Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path_to_access_file};'
     
-    with pyodbc.connect(connection_string) as con:
-        cursor = con.cursor()
-        cursor.execute("SELECT * FROM ENGLISH_WORDS")
-        words_rows = [tuple(row) for row in cursor.fetchall()[starting_index: starting_index + MAXIMUM_READ_WORDS]]
+    try:
+        with pyodbc.connect(connection_string) as con:
+            cursor = con.cursor()
+            cursor.execute("SELECT * FROM ENGLISH_WORDS")
+            words_rows = [tuple(row) for row in cursor.fetchall()[starting_index: starting_index + MAXIMUM_READ_WORDS]]
 
-    return pd.DataFrame(words_rows, columns=["Word", "Meaning", "Spelling"])
+        return pd.DataFrame(words_rows, columns=["Word", "Meaning", "Spelling"])
+    except Exception as e:
+        print(f"Failed to read from Access DB: {e}")
+        return pd.DataFrame()
 
 def manipulate_registry(key_name: str, option: str, new_value: str = None):
     """
@@ -89,35 +95,61 @@ def manipulate_registry(key_name: str, option: str, new_value: str = None):
         with winreg.CreateKey(MAIN_REGISTRY, full_path) as new_key:
             winreg.SetValueEx(new_key, key_name, 0, winreg.REG_SZ, new_value)
             return 0
+    except Exception as e:
+        print(f"Failed to manipulate registry: {e}")
+        return -1
 
 def main():
     # Main execution
     starting_index = manipulate_registry(APP_NAME, "read")
+    if starting_index == -1:
+        print("Failed to read starting index from registry.")
+        return
+
     words = read_access_db(starting_index)
+    if words.empty:
+        print("No words read from the database.")
+        return
 
     response_state = send_words(words.values, TO_CHAT_ID)
     if response_state:
         starting_index += MAXIMUM_READ_WORDS
         manipulate_registry(APP_NAME, "write", str(starting_index))
     else:
-        pass
+        print("Failed to send words.")
 
 def find_correct_answer(options, answer):
     for index, element in enumerate(options):
         if element == answer:
             return index
+    return -1
 
 def CreatePoll(poll_question, poll_options, correct_answer):
-    message_id = bot.send_poll(TO_CHAT_ID, poll_question, poll_options, type = "quiz", correct_option_id = find_correct_answer(poll_options, correct_answer[0]))
+    with bot_lock:
+        try:
+            message_id = bot.send_poll(TO_CHAT_ID, poll_question, poll_options, type="quiz", correct_option_id=find_correct_answer(poll_options, correct_answer[0]))
+            return message_id
+        except telebot.apihelper.ApiException as e:
+            print(f"Failed to create poll: {e}")
+            return None
 
 def DeleteMessage(message_id):
-    if bot.delete_message(TO_CHAT_ID, message_id):
-        print("Message Deleted Successfully")
+    with bot_lock:
+        try:
+            if bot.delete_message(TO_CHAT_ID, message_id):
+                print("Message Deleted Successfully")
+                return True
+            else:
+                print("Failed to delete message.")
+                return False
+        except telebot.apihelper.ApiException as e:
+            print(f"Failed to delete message: {e}")
+            return False
 
 def InitiateMessagesTracking():
     # Function to handle all incoming messages
-    @bot.message_handler(func=lambda message: True) # Handle all messages
-    def handle_message(message):
+    @bot.message_handler(func=lambda message: True)  # Handle all messages
+    def handle_message(message: telebot.types.Message):
         chat_id = -1 * (message.chat.id) if (message.chat.id < 0) else (message.chat.id)
         message_text = message.text
 
@@ -125,33 +157,31 @@ def InitiateMessagesTracking():
         print(f"Received message from chat ID: {chat_id}, text: {message_text}")
         # Save message data (example: to a JSON file)
         message_data = {
-                'chat_id': message.chat.id,
-                'message_id': message.message_id,
-                'text': message.text,
-                'date': message.date,
-                'from_user': {
-                    'id': message.from_user.id,
-                    'first_name': message.from_user.first_name,
-                    'last_name': message.from_user.last_name,
-                    'username': message.from_user.username
-                },
-                'chat': {
-                    'id': message.chat.id,
-                    'type': message.chat.type,
-                    'title': message.chat.title,
-                    'username': message.chat.username
-                }
+            'chat_id': message.chat.id,
+            'message_id': message.message_id,
+            'text': message.text,
+            'date': message.date,
+            'from_user': {
+                'id': message.from_user.id,
+                'first_name': message.from_user.first_name,
+                'last_name': message.from_user.last_name,
+                'username': message.from_user.username
+            },
+            'chat': {
+                'id': message.chat.id,
+                'type': message.chat.type,
+                'title': message.chat.title,
+                'username': message.chat.username
             }
+        }
         with open("messages.json", "a") as f:
             json.dump(message_data, f)
-            f.write('\n') # Add a newline for better readability
-        
-    @bot.poll_answer_handler(func = lambda poll: True)
+            f.write('\n')  # Add a newline for better readability
+
+    @bot.poll_answer_handler(func=lambda poll: True)
     def receive(poll_answer: telebot.types.PollAnswer):
-        print(poll_answer.user)
-        
-    bot.polling(none_stop = True, interval = 0)
+        print(poll_answer.poll_id)
 
-    
-
-
+if __name__ == "__main__":
+    InitiateMessagesTracking()
+    bot.polling(none_stop=True, interval=5)
